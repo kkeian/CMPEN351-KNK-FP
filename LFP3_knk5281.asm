@@ -8,7 +8,7 @@ prompt: .asciiz "Enter the number corresponding to the correct game: "
 continue_prompt: .asciiz "Continue? (0 = yes, 1 = no)\n"
 sep_str: .asciiz " - "
 newline: .asciiz "\n"
-audioclue_times: .word 2 # 3 times to play audio clue
+audioclue_times: .word 2 # 2 times to play audio clue
 
 correct_ans_choices: .word 0:4 # we only allow 4 choices to be displayed so have 4 slots to hold in case only correct answer displayed
 num_corr_choices: .word 0 # hold current number of correct answer choices
@@ -791,21 +791,6 @@ GetRandom:
 	move $v0, $a0 # set $v0 to $a0
 	
 	jr $ra # return from procedure
-	
-Pause:
-	# pauses program execution
-	# $a0 = num ms to wait
-	######################
-	move $t0, $a0 # set $t0 to ms input to wait
-	# Get time now
-	li $v0, 30 # load in system time service
-	syscall # Get initial time
-	move $t1, $a0 # move bottom 32 bits of time into $t1 from $a0
-ploop:	syscall # Get current time again
-	sub $t2, $a0, $t1 # Subtract current time from initial time and store in $t2
-	bltu $t2, $t0, ploop # if haven't reached timeout desired ($t0)
-			     # get current time again until timeout reached
-	jr $ra # return from procedure	
 
 ##### from Lab 7 Part 1 end
 
@@ -825,7 +810,7 @@ clearinputloop: syscall # print newline
 PromptGame:
 	# Provides prompt clues for game quizzes on.
 	# 1. Draws clue on bitmap
-	# 2. Plays song 3 times
+	# 2. Plays song 2 times
 	# $a0 - index from 0-4 corresponding to 1 of 5 possible games to prompt with
 	###############################
 	# Get game info
@@ -859,7 +844,7 @@ PromptGame:
 	addi $sp, $sp, -4 # save ra to stack
 	sw $ra, 0($sp)
 	# a0 still has index of game to select
-	jal AudioClue # play audio clue 3 times
+	jal AudioClue # play audio clue 2 times
 	
 	jal ClearDisplay # clear display
 	
@@ -867,77 +852,6 @@ PromptGame:
 	addi $sp, $sp, 4 # pop ra from stack
 	
 	jr $ra # return from proc
-
-
-DrawZeldaSymbol:
-	# Draws the symbol to hint at Zelda which is the only one that uses DrawTriangle
-	# a0 - symbol table for pixels addr
-	# a1 - length of symbol table for pixels
-	##################
-	move $t0, $a0 # move symbol addr to t0 so we don't overwrite it
-	move $t1, $a1 # move number of Zelda Symbol elements so we don't overwrite it later
-zsymLoop: # loop to ensure all 3 shapes are drawn
-	# save ra, $t0 and $t1 to stack before we call DrawTriangle
-	addi $sp, $sp, -12
-	sw $t0, 0($sp)
-	sw $t1, 4($sp)
-	sw $ra, 8($sp)
-	
-	lw $a0, 0($t0) # load this Symbol X addr
-	lw $a1, 4($t0) # load this symbol Y addr
-	lw $a2, 8($t0) # load this symbol color index
-	lw $a3, 12($t0) # load base length
-	jal DrawTriangle
-	
-	# reload ra, t0 and t1 from stack
-	lw $ra, 8($sp)
-	lw $t1, 4($sp)
-	lw $t0, 0($sp)
-	addi $sp, $sp,12 # pop t0 and t1 off stack
-	
-	addi $t0, $t0, 16 # go to next symbol in array - 4 words past current start spot
-	subi $t1, $t1, 1 # decrement num symbols left to draw
-	bnez $t1, zsymLoop # draw next symbol piece if not done
-	
-	jr $ra # return from proc
-
-
-DrawTriangle:
-	# Draws a triangle by successively drawing layers from the bottom.
-	# $a0 = starting X coord
-	# $a1 = starting Y coord
-	# $a2 = color of triangle to draw
-	# $a3 = triangle base length
-	######################
-	j drawTriLoop # jump to drawing first layer
-	
-dTriLayer: subi $a1, $a1, 1 # move Y start pixel up one
-	addi $a0, $a0, 1 # move X start pixel to right by one
-drawTriLoop: # Save args, t0, and ra to stack
-	addi $sp, $sp, -24
-	sw $t0, 0($sp)
-	sw $a0, 4($sp)
-	sw $a1, 8($sp)
-	sw $a2, 12($sp)
-	sw $a3, 16($sp)
-	sw $ra, 20($sp)
-	
-	# line length set at top and decreased before reloop
-	jal HorizLine # Draw bottom line
-	
-	# reload args and ra
-	lw $ra, 20($sp)
-	lw $a3, 16($sp)
-	lw $a2, 12($sp)
-	lw $a1, 8($sp)
-	lw $a0, 4($sp)
-	lw $t0, 0($sp)
-	addi $sp, $sp, 24 # pop off stack
-	
-	subi $a3, $a3, 2 # decrement length of next layer drawn
-	bgtz $a3, dTriLayer # draw next triangle layer if haven't drawn tip of triangle
-	
-	jr $ra # return from function
 	
 
 DrawHorizSymbol:
@@ -1010,7 +924,7 @@ lsymLoop: # loop to ensure all 3 shapes are drawn
 ## Audio procedures below
 AudioClue:
 	# Draws the clue image on bitmap.
-	# Loops playing song for 3 iterations after.
+	# Loops playing song for 2 iterations after.
 	# a0 - index of game to prompt with
 	#######################
 	lw $t0, audioclue_times # loop counter
@@ -1030,7 +944,7 @@ AudioClue:
 	lw $a0, 0($a0) # load song array start addr = first addr pointed to by address at Games index calculated before loop
 	la $a2, MasterTonesTable # song tones table
 	
-answerloop:
+songloop:
 	# Save args, ra, and loop counter to stack
 	addi $sp, $sp, -20 # make space
 	# save args
@@ -1068,7 +982,7 @@ answerloop:
 	lw $a0, 0($sp)
 	addi $sp, $sp, 4 # move pointer to pop a0 now
 	
-	j answerloop # go back to loop again
+	j songloop # go back to loop again
 
 timesup: jr $ra # exit proc
 
@@ -1111,8 +1025,8 @@ songdone: jr $ra # return bc done playing song
 PlayTone:
 	# Plays a Midi tone given a tone value to play.
 	# Plays on Keyboard
-	# $a0 - addr of note to play
-	# $a1 - tone table base addr
+	# $a0 - addr of note to play info, containing note index and duration
+	# $a1 - tone table base addr for indexing to get the correct midi tone integer
 	#####################################################
 	addi $sp, $sp, -8 # make room on stack for ra
 	sw $a0, 0($sp) # save a0 so we can use it later to get the duration to play note
@@ -1128,8 +1042,8 @@ PlayTone:
 			# Set tone duration because its based off a0 addr which will be overwritten with return
 			# value of GetTone -v0 above
 	move $a0, $v0 # set pitch - move returned pitch value ($v0) to arg needed for midi syscall ($a0)
-	li $a2, 6 # set instrument - select shamisen instrument
-	li $a3, 70 # set volume - 100 closely matches actual system volume set by computer user without being startling
+	li $a2, 6 # set instrument - select piano instrument
+	li $a3, 70 # set volume - 70 closely matches actual system volume set by computer user without being startling
 	li $v0, 31 # load MIDI out service
 	syscall # play MIDI tone
 	
